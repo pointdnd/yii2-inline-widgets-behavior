@@ -33,16 +33,18 @@
  * use howard\behaviors\iwb\InlineWidgetsBehavior;
  * class DefaultController extends Controller
  * {
- *     public function behaviors()
- *     {
- *         return array(
- *             'InlineWidgetsBehavior'=>array(
- *                 'class' => InlineWidgetsBehavior::className(),
- *                 'namespace' => 'common\components\widgets',
- *                 'widgets' => Yii::app()->params['runtimeWidgets'],
- *              ),
- *         );
- *     }
+ *  public function behaviors()
+ *    {
+ *        return array(
+ *            'InlineWidgetsBehavior'=>array(
+ *                'class' => \howard\behaviors\iwb\InlineWidgetsBehavior::className(),
+ *                'namespace' => 'yii\easyii\widgets',
+ *                'widgets' => Yii::$app->params['runtimeWidgets'],
+ *                'startBlock'=>'{{w:',
+ *                'endBlock'=>'}}'
+ *             ),
+ *        );
+ *    }
  * }
  *
  * For rendering widgets in View you must call Controller::decodeWidgets() method:
@@ -50,7 +52,7 @@
  *     <h2>Lorem ipsum</h2>
  *     <p>[*LastPosts*]</p> *
  *     <p>[*LastPosts|tpl=small*]</p>
- *     <p>[*LastPosts|tpl=small|cache=300*]</p>
+ *     <p>[*LastPosts|tpl=small~~cache=300*]</p>
  *     <p>Dolor...</p>
  * ';
  * echo $this->context->decodeWidgets($text);
@@ -95,7 +97,7 @@ class InlineWidgetsBehavior extends Behavior
 
     /**
      * Content parser
-     * Use $this->view->decodeWidgets($model->text) in view
+     * Use $this->decodeWidgets($model->text) in view
      * @param $text
      * @return mixed
      */
@@ -165,6 +167,7 @@ class InlineWidgetsBehavior extends Behavior
     protected function _loadWidget($name, $attributes = '')
     {
         $attrs = $this->_parseAttributes($attributes);
+
         $cache = $this->_extractCacheExpireTime($attrs);
         $index = 'widget_' . $name . '_' . serialize($attrs);
         if ($cache && $cachedHtml = \Yii::$app->cache->get($index)) {
@@ -173,7 +176,7 @@ class InlineWidgetsBehavior extends Behavior
             ob_start();
             $widgetClass = $this->_getFullClassName($name);
             $config['class'] = $widgetClass;
-            $widget = \Yii::createObject($config);
+            $widget = \Yii::createObject($config,[$attrs]);
             $widget->run();
             $html = trim(ob_get_clean());
             \Yii::$app->cache->set($index, $html, $cache);
@@ -183,7 +186,8 @@ class InlineWidgetsBehavior extends Behavior
 
     protected function _parseAttributes($attributesString)
     {
-        $params = explode(';', $attributesString);
+        //By default delimiter is ;
+        $params = explode('~~', $attributesString);
         $attrs = array();
         foreach ($params as $param) {
             if ($param) {
